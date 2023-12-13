@@ -130,23 +130,21 @@ end process BIT_COUNT;
 
 bit_cnt_done    <= '1' when bit_cnt = "111" else '0';
 
-OUTPUT_GEN: process(clk)
+OUTPUT_GEN: process(state,baud_en)
 begin
-    if clk'event and clk = '1' then
-       if rst = '1' then
-         reg_txd_tx <= '1';
-       else
-         if(baud_en = '1') then
-           if(state = IDLE) or (state = STOP) then
-             reg_txd_tx <= '1';
-           elsif(state = START) then
-             reg_txd_tx <= '0';
-           else
-             reg_txd_tx <= fifo_dout(to_integer(bit_cnt));
-           end if;
-         end if; -- baud assert
-       end if; -- reset assert 
-    end if; -- clock event
+   if rst = '1' then
+	 reg_txd_tx <= '1';
+   else
+	 if(baud_en = '1') then
+	   if(state = IDLE) or (state = STOP) then
+		 reg_txd_tx <= '1';
+	   elsif(state = START) then
+		 reg_txd_tx <= '0';
+	   else
+		 reg_txd_tx <= fifo_dout(to_integer(bit_cnt));
+	   end if;
+	 end if; -- baud assert
+   end if; -- reset assert 
 end process OUTPUT_GEN;
 
 txd_tx <= reg_txd_tx;

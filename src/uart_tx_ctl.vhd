@@ -31,18 +31,20 @@ begin
 
 SYNC_PROC: process (clk)
 begin
-  if (clk'event and clk = '1') then
-     if (rst = '1') then
-        state   <= IDLE;
-     elsif baud_en = '1' then
-        state   <= next_state;
-     else
-        state   <= state;
-     end if;
-  end if;
+	if (clk'event and clk = '1') then
+		if (rst = '1') then
+			state   <= IDLE;
+		else
+			if baud_en = '1' then
+				state   <= next_state;
+			else
+				state   <= state;
+			end if; --baud enable
+		end if; -- rst assert
+	end if; -- clock event
 end process;
 
-OUTPUT_DECODE: process (state, over_sample_done, bit_cnt_done)
+FIFO_POP: process (state, over_sample_done, bit_cnt_done)
 begin
   if state = DATA then
     if (over_sample_done = '1' and bit_cnt_done = '1')then
@@ -86,28 +88,39 @@ begin
   end case;
 end process;
 
+
 OVER_SAMPLE: process(clk)
 begin
-    if clk'event and clk = '1' then
-       if rst = '1' then
-         over_sample_cnt <= (others => '0');
-       else
-         if(baud_en = '1') then
-           if(over_sample_done = '0') then
-             over_sample_cnt <= over_sample_cnt - 1;
-           else
-             if(((state = IDLE) and (fifo_empty = '0')) or
-                ((state = START)) or ((state = DATA)) or
-                ((state = STOP) and (fifo_empty = '0'))) then
-                over_sample_cnt <= "1111";
-             end if;
-           end if;
-         end if; -- baud assert
-       end if; -- reset assert 
-    end if; -- clock event
+	if clk'event and clk = '1' then
+		if rst = '1' then
+			over_sample_cnt <= (others => '0');
+		else
+			if(baud_en = '1') then
+				if(over_sample_done = '0') then
+					over_sample_cnt <= over_sample_cnt + 1;
+				else
+					case (state) is
+						when IDLE	=>
+							if(fifo_empty = '0') then
+								over_sample_cnt <= (others => '0');
+							end if;
+						when START	=>
+							over_sample_cnt <= (others => '0');
+						when DATA	=>
+							over_sample_cnt <= (others => '0');
+						when STOP	=>
+							if(fifo_empty = '0') then
+								over_sample_cnt <= (others => '0');
+							end if;
+					end case;
+				end if;
+			end if; -- baud assert
+		end if; -- reset assert 
+	end if; -- clock event
 end process OVER_SAMPLE;
 
-over_sample_done <= '1' when over_sample_cnt = "0000" else '0';
+over_sample_done <= '1' when over_sample_cnt = "1111" else '0';
+
 
 BIT_COUNT: process(clk)
 begin

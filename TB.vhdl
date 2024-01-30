@@ -102,7 +102,16 @@ begin
 	wait until falling_edge(reg_rst);
 	reg_fifo_empty <= '0';
 	
-	for idx in 0 to samples-1 loop
+	for idx in 0 to (samples/2)-1 loop
+	reg_fifo_dout <= stimuli(idx);
+	wait until rising_edge(reg_fifo_rd_en);
+	end loop;
+	
+	reg_fifo_empty <= '1';
+	wait for period*50000;
+	reg_fifo_empty <= '0';
+	
+	for idx in (samples/2) to samples-1 loop
 	reg_fifo_dout <= stimuli(idx);
 	wait until rising_edge(reg_fifo_rd_en);
 	end loop;
@@ -119,7 +128,21 @@ begin
 	wait until falling_edge(reg_txd_tx);
 	wait for over_sample_time/2; --avoid reading during transition
 	-- sample loop
-	for idx in 0 to samples-1 loop
+	for idx in 0 to (samples/2)-1 loop
+	wait for over_sample_time; --start state bit
+	-- bit loop
+	for jdx in 0 to 7 loop
+		rx(jdx) <= reg_txd_tx;
+		wait for over_sample_time;
+	end loop;
+	--assert
+	assert(rx = stimuli(idx)) report "not correctly received" severity error;
+	wait for over_sample_time; --stop state bit
+	end loop;
+	
+	wait for period*50000 - over_sample_time;
+	
+	for idx in (samples/2) to samples-1 loop
 	wait for over_sample_time; --start state bit
 	-- bit loop
 	for jdx in 0 to 7 loop

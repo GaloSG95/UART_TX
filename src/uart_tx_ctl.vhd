@@ -29,7 +29,7 @@ signal reg_txd_tx       : std_logic:='1';
 
 begin
 
-SYNC_PROC: process (clk)
+SYNC_STATE: process (clk)
 begin
 	if (clk'event and clk = '1') then
 		if (rst = '1') then
@@ -37,12 +37,10 @@ begin
 		else
 			if baud_en = '1' then
 				state   <= next_state;
-			else
-				state   <= state;
 			end if; --baud enable
 		end if; -- rst assert
 	end if; -- clock event
-end process;
+end process SYNC_STATE;
 
 FIFO_POP: process (state, over_sample_done, bit_cnt_done)
 begin
@@ -55,7 +53,7 @@ begin
   else
     reg_fifo_pop <= '0';
   end if;
-end process;
+end process FIFO_POP;
 
 fifo_rd_en  <= '1' when (reg_fifo_pop = '1' and baud_en = '1') else '0';
 
@@ -86,7 +84,7 @@ begin
            end if;
         end if;
   end case;
-end process;
+end process NEXT_STATE_DECODE;
 
 
 OVER_SAMPLE: process(clk)
@@ -143,22 +141,24 @@ end process BIT_COUNT;
 
 bit_cnt_done    <= '1' when bit_cnt = "111" else '0';
 
-OUTPUT_GEN: process(state,baud_en)
+OUTPUT_TX: process(clk)
 begin
-   if rst = '1' then
-	 reg_txd_tx <= '1';
-   else
-	 if(baud_en = '1') then
-	   if(state = IDLE) or (state = STOP) then
-		 reg_txd_tx <= '1';
-	   elsif(state = START) then
-		 reg_txd_tx <= '0';
-	   else
-		 reg_txd_tx <= fifo_dout(to_integer(bit_cnt));
-	   end if;
-	 end if; -- baud assert
-   end if; -- reset assert 
-end process OUTPUT_GEN;
+  if clk'event and clk = '1' then
+    if rst = '1' then
+      reg_txd_tx <= '1';
+    else
+      if(baud_en = '1') then
+        if(state = IDLE) or (state = STOP) then
+          reg_txd_tx <= '1';
+        elsif(state = START) then
+          reg_txd_tx <= '0';
+        else
+          reg_txd_tx <= fifo_dout(to_integer(bit_cnt));
+        end if;
+      end if; -- baud assert
+    end if; -- reset assert
+  end if;
+end process OUTPUT_TX;
 
 txd_tx <= reg_txd_tx;
 
